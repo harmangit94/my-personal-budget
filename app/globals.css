@@ -94,3 +94,17 @@
   to   { opacity: 1; transform: translateY(0); }
 }
 .fade-in { animation: fadeSlideIn 0.25s ease-out; }
+
+/* Mobile touch targets */
+@media (max-width: 1024px) {
+  button, [role="button"] { min-height: 40px; }
+  input, select, textarea  { min-height: 44px; font-size: 16px; } /* prevents iOS zoom */
+}
+
+/* Safe area insets for notched phones */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  nav.fixed.bottom-0 { padding-bottom: env(safe-area-inset-bottom); }
+}
+
+/* Smooth momentum scrolling on iOS */
+main { -webkit-overflow-scrolling: touch; }

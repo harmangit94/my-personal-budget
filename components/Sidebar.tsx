@@ -9,6 +9,10 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import type { ActiveSection } from '@/types';
+import { supabase } from '@/lib/supabase';
+import { useBudgetStore } from '@/lib/store';
+import { toast } from 'sonner';
+import { LogOut } from 'lucide-react';
 
 interface Props {
   activeSection: ActiveSection;
@@ -27,8 +31,15 @@ const NAV = [
 export default function Sidebar({ activeSection, onNavigate }: Props) {
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
+  const { clearLocalState } = useBudgetStore();
   useEffect(() => setMounted(true), []);
   const isDark = mounted && theme === 'dark';
+
+  async function handleSignOut() {
+    await supabase.auth.signOut();
+    clearLocalState();
+    toast.success('Signed out');
+  }
 
   return (
     <div className="w-64 h-full flex flex-col bg-card border-r border-border">
@@ -65,8 +76,8 @@ export default function Sidebar({ activeSection, onNavigate }: Props) {
         ))}
       </nav>
 
-      {/* Theme toggle */}
-      <div className="p-4 border-t border-border shrink-0">
+      {/* Theme toggle + sign out */}
+      <div className="p-4 border-t border-border shrink-0 space-y-3">
         <div className="flex items-center justify-between px-3">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             {mounted ? (isDark ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />) : <Sun className="w-4 h-4" />}
@@ -79,6 +90,13 @@ export default function Sidebar({ activeSection, onNavigate }: Props) {
             />
           )}
         </div>
+        <button
+          onClick={handleSignOut}
+          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 transition-colors"
+        >
+          <LogOut className="w-4 h-4" />
+          Sign Out
+        </button>
       </div>
     </div>
   );

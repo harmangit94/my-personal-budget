@@ -1,7 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { supabase } from '@/lib/supabase';
+import { useBudgetStore } from '@/lib/store';
 import Sidebar from '@/components/Sidebar';
+import BottomNav from '@/components/BottomNav';
 import DashboardSummary from '@/components/DashboardSummary';
 import CreditCardWidget from '@/components/CreditCardWidget';
 import BillCard from '@/components/BillCard';
@@ -9,12 +12,31 @@ import IncomeSummary from '@/components/IncomeSummary';
 import TransactionsList from '@/components/TransactionsList';
 import SettingsPanel from '@/components/Settings';
 import type { ActiveSection } from '@/types';
-import { Menu, X } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Loader2 } from 'lucide-react';
 
 export default function Home() {
-  const [active, setActive] = useState<ActiveSection>('dashboard');
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [active, setActive]         = useState<ActiveSection>('dashboard');
+  const [sidebarOpen, setSidebar]   = useState(false);
+  const { loadFromSupabase, clearLocalState, loading } = useBudgetStore();
+
+  useEffect(() => {
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) loadFromSupabase(session.user.id);
+    });
+
+    // Listen for auth changes (login from another tab, token refresh, etc.)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        loadFromSupabase(session.user.id);
+      } else {
+        clearLocalState();
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function renderSection() {
     switch (active) {
@@ -27,42 +49,67 @@ export default function Home() {
     }
   }
 
+  if (loading) {
+    return (
+      <div className="h-screen flex flex-col items-center justify-center gap-3 bg-background">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <p className="text-sm text-muted-foreground">Loading your budget...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-screen overflow-hidden bg-background">
       {/* Mobile backdrop */}
       {sidebarOpen && (
         <div
           className="fixed inset-0 z-20 bg-black/50 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
+          onClick={() => setSidebar(false)}
         />
       )}
 
-      {/* Sidebar */}
+      {/* Sidebar — desktop only */}
+      <aside className="hidden lg:flex shrink-0">
+        <Sidebar activeSection={active} onNavigate={setActive} />
+      </aside>
+
+      {/* Mobile slide-in sidebar */}
       <aside
-        className={`fixed lg:relative z-30 h-full transform transition-transform duration-300 ease-in-out
-          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
+        className={`fixed lg:hidden z-30 h-full transform transition-transform duration-300 ease-in-out
+          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
       >
         <Sidebar
           activeSection={active}
-          onNavigate={(s) => { setActive(s); setSidebarOpen(false); }}
+          onNavigate={(s) => { setActive(s); setSidebar(false); }}
         />
       </aside>
 
-      {/* Main content */}
+      {/* Main */}
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
         {/* Mobile top bar */}
-        <div className="lg:hidden flex items-center justify-between px-4 py-3 border-b border-border bg-background shrink-0">
-          <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(!sidebarOpen)}>
-            {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </Button>
+        <div className="lg:hidden flex items-center justify-between px-4 py-3 border-b border-border bg-background/80 backdrop-blur-sm shrink-0">
+          <button
+            onClick={() => setSidebar(!sidebarOpen)}
+            className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-accent transition-colors"
+          >
+            <div className="space-y-1.5">
+              <span className="block w-5 h-0.5 bg-foreground" />
+              <span className="block w-5 h-0.5 bg-foreground" />
+              <span className="block w-4 h-0.5 bg-foreground" />
+            </div>
+          </button>
           <span className="font-semibold text-sm">Personal Budget</span>
           <div className="w-9" />
         </div>
 
-        <main className="flex-1 overflow-y-auto">
+        {/* Content — extra bottom padding on mobile for BottomNav */}
+        <main className="flex-1 overflow-y-auto pb-20 lg:pb-0">
           <div className="fade-in">{renderSection()}</div>
         </main>
       </div>
+
+      {/* Bottom nav — mobile only */}
+      <BottomNav activeSection={active} onNavigate={setActive} />
     </div>
   );
 }
