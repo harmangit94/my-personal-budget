@@ -1,5 +1,7 @@
 'use client';
 
+export const dynamic = 'force-dynamic';
+
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useBudgetStore } from '@/lib/store';
@@ -21,8 +23,8 @@ export default function Home() {
 
   useEffect(() => {
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) loadFromSupabase(session.user.id);
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session?.user) loadFromSupabase(data.session.user.id);
     });
 
     // Listen for auth changes (login from another tab, token refresh, etc.)
