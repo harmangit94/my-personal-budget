@@ -9,6 +9,7 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import type { ActiveSection } from '@/types';
+import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { useBudgetStore } from '@/lib/store';
 import { toast } from 'sonner';
@@ -29,6 +30,7 @@ const NAV = [
 ];
 
 export default function Sidebar({ activeSection, onNavigate }: Props) {
+  const router = useRouter();
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const { clearLocalState } = useBudgetStore();
@@ -39,6 +41,8 @@ export default function Sidebar({ activeSection, onNavigate }: Props) {
     await supabase.auth.signOut();
     clearLocalState();
     toast.success('Signed out');
+    router.push('/auth');
+    router.refresh();
   }
 
   return (
