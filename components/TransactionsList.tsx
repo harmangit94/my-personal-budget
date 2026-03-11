@@ -3,24 +3,33 @@
 import { useState } from 'react';
 import { useBudgetStore } from '@/lib/store';
 import { formatCurrency, formatDate, CATEGORIES } from '@/lib/utils';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import TransactionForm from './TransactionForm';
-import { Plus, Trash2, ArrowUpCircle, ArrowDownCircle, List } from 'lucide-react';
+import { Plus, Trash2, ArrowUpCircle, ArrowDownCircle, Receipt } from 'lucide-react';
 import { toast } from 'sonner';
 import type { TransactionCategory } from '@/types';
 
 export default function TransactionsList() {
-  const { transactions, removeTransaction, creditCards } = useBudgetStore();
+  const { transactions, removeTransaction, creditCards, accounts } = useBudgetStore();
   const [open, setOpen]       = useState(false);
   const [typeFilter, setType] = useState<'all' | 'expense' | 'deposit'>('all');
   const [catFilter, setCat]   = useState<'all' | TransactionCategory>('all');
 
-  const cardName = (id?: string) =>
-    id ? (creditCards.find((c) => c.id === id)?.name ?? 'Card') : null;
+  const getLinkedName = (cardId?: string, accountId?: string) => {
+    if (cardId) return creditCards.find((c) => c.id === cardId)?.name ?? 'Card';
+    if (accountId) return accounts.find((a) => a.id === accountId)?.name ?? 'Account';
+    return null;
+  };
+
+  const getLinkedType = (cardId?: string, accountId?: string) => {
+    if (cardId) return 'Credit Card';
+    if (accountId) return 'Account';
+    return null;
+  };
 
   const filtered = [...transactions]
     .filter((t) => typeFilter === 'all' || t.type === typeFilter)
@@ -34,15 +43,15 @@ export default function TransactionsList() {
     <div className="p-6 space-y-6 max-w-4xl">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold">Transactions</h2>
+          <h2 className="text-2xl font-bold">Expenses</h2>
           <p className="text-muted-foreground text-sm mt-0.5">{transactions.length} total</p>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
-            <Button><Plus className="w-4 h-4 mr-2" />Add Transaction</Button>
+            <Button><Plus className="w-4 h-4 mr-2" />Add Expense</Button>
           </DialogTrigger>
           <DialogContent>
-            <DialogHeader><DialogTitle>Add Transaction</DialogTitle></DialogHeader>
+            <DialogHeader><DialogTitle>Add Expense</DialogTitle></DialogHeader>
             <TransactionForm onSuccess={() => setOpen(false)} />
           </DialogContent>
         </Dialog>
@@ -77,41 +86,47 @@ export default function TransactionsList() {
         <CardContent className="p-0">
           {filtered.length === 0 ? (
             <div className="flex flex-col items-center py-16 text-muted-foreground gap-2">
-              <List className="w-10 h-10 opacity-20" />
-              <p className="text-sm">No transactions found</p>
+              <Receipt className="w-10 h-10 opacity-20" />
+              <p className="text-sm">No expenses found</p>
             </div>
           ) : (
             <div className="divide-y divide-border">
-              {filtered.map((t) => (
-                <div key={t.id} className="flex items-center gap-4 px-4 py-3">
-                  {t.type === 'expense'
-                    ? <ArrowUpCircle className="w-4 h-4 text-rose-500 shrink-0" />
-                    : <ArrowDownCircle className="w-4 h-4 text-emerald-500 shrink-0" />}
+              {filtered.map((t) => {
+                const linkedName = getLinkedName(t.cardId, t.accountId);
+                const linkedType = getLinkedType(t.cardId, t.accountId);
+                return (
+                  <div key={t.id} className="flex items-center gap-4 px-4 py-3">
+                    {t.type === 'expense'
+                      ? <ArrowUpCircle className="w-4 h-4 text-rose-500 shrink-0" />
+                      : <ArrowDownCircle className="w-4 h-4 text-emerald-500 shrink-0" />}
 
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <p className="text-sm font-medium truncate">{t.description}</p>
-                      <Badge variant="outline" className="text-[10px] h-4">{t.category}</Badge>
-                      {cardName(t.cardId) && (
-                        <Badge variant="secondary" className="text-[10px] h-4">{cardName(t.cardId)}</Badge>
-                      )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-sm font-medium truncate">{t.description}</p>
+                        <Badge variant="outline" className="text-[10px] h-4">{t.category}</Badge>
+                        {linkedName && linkedType && (
+                          <Badge variant="secondary" className="text-[10px] h-4">
+                            {linkedType}: {linkedName}
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5">{formatDate(t.date)}</p>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-0.5">{formatDate(t.date)}</p>
+
+                    <span className={`font-semibold text-sm shrink-0 ${t.type === 'expense' ? 'text-rose-500' : 'text-emerald-500'}`}>
+                      {t.type === 'expense' ? '−' : '+'}{formatCurrency(t.amount)}
+                    </span>
+
+                    <Button
+                      size="icon" variant="ghost"
+                      className="h-7 w-7 text-muted-foreground hover:text-rose-500 shrink-0"
+                      onClick={() => { removeTransaction(t.id); toast.success('Transaction removed'); }}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
                   </div>
-
-                  <span className={`font-semibold text-sm shrink-0 ${t.type === 'expense' ? 'text-rose-500' : 'text-emerald-500'}`}>
-                    {t.type === 'expense' ? '−' : '+'}{formatCurrency(t.amount)}
-                  </span>
-
-                  <Button
-                    size="icon" variant="ghost"
-                    className="h-7 w-7 text-muted-foreground hover:text-rose-500 shrink-0"
-                    onClick={() => { removeTransaction(t.id); toast.success('Transaction removed'); }}
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </Button>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </CardContent>

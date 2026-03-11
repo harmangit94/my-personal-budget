@@ -13,12 +13,15 @@ export type BillFrequency = 'weekly' | 'bi-weekly' | 'monthly' | 'quarterly' | '
 
 export type CardColor = 'blue' | 'purple' | 'green' | 'red' | 'dark' | 'gold';
 
+export type AccountType = 'checking' | 'savings' | 'cash';
+
 export type ActiveSection =
   | 'dashboard'
   | 'credit-cards'
+  | 'accounts'
   | 'bills'
   | 'income'
-  | 'transactions'
+  | 'expenses'
   | 'settings';
 
 export interface CreditCard {
@@ -30,9 +33,18 @@ export interface CreditCard {
   lastFour?: string;
 }
 
+export interface Account {
+  id: string;
+  name: string;
+  balance: number;
+  accountType: AccountType;
+  color: CardColor;
+}
+
 export interface Transaction {
   id: string;
   cardId?: string;
+  accountId?: string;
   amount: number;
   description: string;
   date: string;

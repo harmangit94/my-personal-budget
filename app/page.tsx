@@ -9,6 +9,7 @@ import Sidebar from '@/components/Sidebar';
 import BottomNav from '@/components/BottomNav';
 import DashboardSummary from '@/components/DashboardSummary';
 import CreditCardWidget from '@/components/CreditCardWidget';
+import AccountsPanel from '@/components/AccountsPanel';
 import BillCard from '@/components/BillCard';
 import IncomeSummary from '@/components/IncomeSummary';
 import TransactionsList from '@/components/TransactionsList';
@@ -22,12 +23,10 @@ export default function Home() {
   const { loadFromSupabase, clearLocalState, loading } = useBudgetStore();
 
   useEffect(() => {
-    // Get initial session
     supabase.auth.getSession().then(({ data }) => {
       if (data.session?.user) loadFromSupabase(data.session.user.id);
     });
 
-    // Listen for auth changes (login from another tab, token refresh, etc.)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
         loadFromSupabase(session.user.id);
@@ -44,9 +43,10 @@ export default function Home() {
     switch (active) {
       case 'dashboard':    return <DashboardSummary onNavigate={setActive} />;
       case 'credit-cards': return <CreditCardWidget />;
+      case 'accounts':     return <AccountsPanel />;
       case 'bills':        return <BillCard />;
       case 'income':       return <IncomeSummary />;
-      case 'transactions': return <TransactionsList />;
+      case 'expenses':     return <TransactionsList />;
       case 'settings':     return <SettingsPanel />;
     }
   }

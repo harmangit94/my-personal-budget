@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useTheme } from 'next-themes';
 import {
   LayoutDashboard, CreditCard, CalendarDays, TrendingUp,
-  List, Settings, Sun, Moon, Wallet,
+  Receipt, Settings, Sun, Moon, Wallet, Banknote,
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
@@ -23,9 +23,10 @@ interface Props {
 const NAV = [
   { id: 'dashboard'    as ActiveSection, label: 'Dashboard',      icon: LayoutDashboard },
   { id: 'credit-cards' as ActiveSection, label: 'Credit Cards',   icon: CreditCard },
+  { id: 'accounts'     as ActiveSection, label: 'Accounts',       icon: Banknote },
   { id: 'bills'        as ActiveSection, label: 'Upcoming Bills', icon: CalendarDays },
   { id: 'income'       as ActiveSection, label: 'Income',         icon: TrendingUp },
-  { id: 'transactions' as ActiveSection, label: 'Transactions',   icon: List },
+  { id: 'expenses'     as ActiveSection, label: 'Expenses',       icon: Receipt },
   { id: 'settings'     as ActiveSection, label: 'Settings',       icon: Settings },
 ];
 

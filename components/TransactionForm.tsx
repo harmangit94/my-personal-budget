@@ -11,18 +11,21 @@ import { toast } from 'sonner';
 import type { TransactionCategory } from '@/types';
 
 interface Props {
-  cardId?: string;
   onSuccess?: () => void;
 }
 
-export default function TransactionForm({ cardId, onSuccess }: Props) {
-  const { addTransaction, creditCards } = useBudgetStore();
-  const [amount, setAmount]     = useState('');
-  const [description, setDesc]  = useState('');
-  const [date, setDate]         = useState(new Date().toISOString().split('T')[0]);
-  const [category, setCategory] = useState<TransactionCategory>('Other');
-  const [type, setType]         = useState<'expense' | 'deposit'>('expense');
-  const [selectedCard, setCard] = useState(cardId ?? '');
+type AccountLinkType = 'none' | 'credit-card' | 'account';
+
+export default function TransactionForm({ onSuccess }: Props) {
+  const { addTransaction, creditCards, accounts } = useBudgetStore();
+  const [amount, setAmount]           = useState('');
+  const [description, setDesc]        = useState('');
+  const [date, setDate]               = useState(new Date().toISOString().split('T')[0]);
+  const [category, setCategory]       = useState<TransactionCategory>('Other');
+  const [type, setType]               = useState<'expense' | 'deposit'>('expense');
+  const [accountLinkType, setLinkType] = useState<AccountLinkType>('none');
+  const [selectedCardId, setCardId]   = useState('');
+  const [selectedAccountId, setAccId] = useState('');
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -37,12 +40,17 @@ export default function TransactionForm({ cardId, onSuccess }: Props) {
       date: new Date(date).toISOString(),
       category,
       type,
-      cardId: selectedCard || undefined,
+      cardId: accountLinkType === 'credit-card' && selectedCardId ? selectedCardId : undefined,
+      accountId: accountLinkType === 'account' && selectedAccountId ? selectedAccountId : undefined,
     });
     toast.success(`${type === 'expense' ? 'Expense' : 'Deposit'} added!`);
     setAmount('');
     setDesc('');
     setDate(new Date().toISOString().split('T')[0]);
+    setCategory('Other');
+    setLinkType('none');
+    setCardId('');
+    setAccId('');
     onSuccess?.();
   }
 
@@ -101,15 +109,45 @@ export default function TransactionForm({ cardId, onSuccess }: Props) {
         </Select>
       </div>
 
-      {!cardId && creditCards.length > 0 && (
+      {/* Account type selector */}
+      <div className="space-y-1.5">
+        <Label>Account Type</Label>
+        <Select value={accountLinkType} onValueChange={(v) => {
+          setLinkType(v as AccountLinkType);
+          setCardId('');
+          setAccId('');
+        }}>
+          <SelectTrigger><SelectValue placeholder="No account linked" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">No account linked</SelectItem>
+            {creditCards.length > 0 && <SelectItem value="credit-card">Credit Card</SelectItem>}
+            {accounts.length > 0 && <SelectItem value="account">Debit Account</SelectItem>}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {accountLinkType === 'credit-card' && creditCards.length > 0 && (
         <div className="space-y-1.5">
-          <Label>Credit Card (optional)</Label>
-          <Select value={selectedCard} onValueChange={setCard}>
-            <SelectTrigger><SelectValue placeholder="No card" /></SelectTrigger>
+          <Label>Select Credit Card</Label>
+          <Select value={selectedCardId} onValueChange={setCardId}>
+            <SelectTrigger><SelectValue placeholder="Choose a card" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="">No card</SelectItem>
               {creditCards.map((c) => (
                 <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
+      {accountLinkType === 'account' && accounts.length > 0 && (
+        <div className="space-y-1.5">
+          <Label>Select Account</Label>
+          <Select value={selectedAccountId} onValueChange={setAccId}>
+            <SelectTrigger><SelectValue placeholder="Choose an account" /></SelectTrigger>
+            <SelectContent>
+              {accounts.map((a) => (
+                <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
               ))}
             </SelectContent>
           </Select>

@@ -9,8 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import TransactionForm from './TransactionForm';
-import { Plus, Trash2, CreditCard as CardIcon, ArrowUpCircle, ArrowDownCircle } from 'lucide-react';
+import { Plus, Trash2, CreditCard as CardIcon, ArrowUpCircle, ArrowDownCircle, Pencil, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import type { CreditCard, CardColor } from '@/types';
 
@@ -18,7 +17,8 @@ import type { CreditCard, CardColor } from '@/types';
 function Ring({ pct, size = 76, sw = 7 }: { pct: number; size?: number; sw?: number }) {
   const r = (size - sw) / 2;
   const circ = 2 * Math.PI * r;
-  const offset = circ - (Math.min(pct, 100) / 100) * circ;
+  const remaining = Math.min(pct, 100);
+  const offset = circ - (remaining / 100) * circ;
   return (
     <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
       <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(255,255,255,.2)" strokeWidth={sw} />
@@ -33,13 +33,126 @@ function Ring({ pct, size = 76, sw = 7 }: { pct: number; size?: number; sw?: num
   );
 }
 
+/* ── Edit card form ── */
+function EditCardForm({ card, onSuccess }: { card: CreditCard; onSuccess: () => void }) {
+  const { updateCreditCard } = useBudgetStore();
+  const [name, setName]             = useState(card.name);
+  const [availableCredit, setAvail] = useState(String(Math.max(0, card.limit - card.balance)));
+  const [limit, setLimit]           = useState(String(card.limit));
+  const [color, setColor]           = useState<CardColor>(card.color);
+  const [lastFour, setLast4]        = useState(card.lastFour ?? '');
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const lim = parseFloat(limit);
+    const avail = parseFloat(availableCredit);
+    if (!name || isNaN(lim) || lim <= 0) { toast.error('Name and limit are required'); return; }
+    if (isNaN(avail) || avail < 0) { toast.error('Available credit must be a valid number'); return; }
+    const balance = Math.max(0, lim - avail);
+    updateCreditCard(card.id, { name, balance, limit: lim, color, lastFour: lastFour || undefined });
+    toast.success('Card updated!');
+    onSuccess();
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="space-y-1.5">
+        <Label>Card Name *</Label>
+        <Input value={name} onChange={(e) => setName(e.target.value)} />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1.5">
+          <Label>Credit Limit *</Label>
+          <Input type="number" min="0" step="0.01" value={limit} onChange={(e) => setLimit(e.target.value)} />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Available Credit</Label>
+          <Input type="number" min="0" step="0.01" value={availableCredit} onChange={(e) => setAvail(e.target.value)} />
+        </div>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Balance owed = Limit − Available credit
+        {!isNaN(parseFloat(limit)) && !isNaN(parseFloat(availableCredit)) && (
+          <span className="font-semibold text-foreground">
+            {' '}= {formatCurrency(Math.max(0, parseFloat(limit) - parseFloat(availableCredit)))}
+          </span>
+        )}
+      </p>
+      <div className="space-y-1.5">
+        <Label>Last 4 Digits (optional)</Label>
+        <Input placeholder="1234" maxLength={4} value={lastFour} onChange={(e) => setLast4(e.target.value)} />
+      </div>
+      <div className="space-y-1.5">
+        <Label>Card Color</Label>
+        <div className="flex gap-2 flex-wrap">
+          {CARD_COLORS.map((c) => (
+            <button
+              key={c} type="button" onClick={() => setColor(c)}
+              className={`w-8 h-8 rounded-full bg-gradient-to-br ${getCardGradient(c)} border-2 transition-all
+                ${color === c ? 'border-primary scale-110 shadow-md' : 'border-transparent opacity-70 hover:opacity-100'}`}
+            />
+          ))}
+        </div>
+      </div>
+      <Button type="submit" className="w-full">Save Changes</Button>
+    </form>
+  );
+}
+
+/* ── Delete confirmation dialog ── */
+function DeleteCardDialog({ card, onDeleted }: { card: CreditCard; onDeleted: () => void }) {
+  const { removeCreditCard } = useBudgetStore();
+  const [open, setOpen] = useState(false);
+
+  function handleDelete() {
+    removeCreditCard(card.id);
+    toast.success(`${card.name} deleted`);
+    setOpen(false);
+    onDeleted();
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button
+          size="sm" variant="outline"
+          className="text-rose-500 hover:text-rose-600 hover:border-rose-300 gap-1.5"
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+          Delete Card
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-rose-500">
+            <AlertTriangle className="w-5 h-5" />
+            Delete Credit Card
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Are you sure you want to delete <span className="font-semibold text-foreground">{card.name}</span>?
+            This will also remove all associated transactions. This action cannot be undone.
+          </p>
+          <div className="flex gap-2">
+            <Button variant="outline" className="flex-1" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button variant="destructive" className="flex-1" onClick={handleDelete}>
+              Yes, Delete Card
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 /* ── Individual card display ── */
 function CardDisplay({ card }: { card: CreditCard }) {
-  const { removeCreditCard, transactions } = useBudgetStore();
-  const [txOpen, setTxOpen] = useState(false);
+  const { transactions } = useBudgetStore();
+  const [editOpen, setEditOpen] = useState(false);
 
-  const util = card.limit > 0 ? Math.min((card.balance / card.limit) * 100, 100) : 0;
   const available = Math.max(0, card.limit - card.balance);
+  const remainingPct = card.limit > 0 ? Math.min((available / card.limit) * 100, 100) : 0;
 
   const recent = transactions
     .filter((t) => t.cardId === card.id)
@@ -54,7 +167,6 @@ function CardDisplay({ card }: { card: CreditCard }) {
           className={`relative rounded-2xl p-5 bg-gradient-to-br ${getCardGradient(card.color)} text-white shadow-xl overflow-hidden`}
           style={{ minHeight: '190px' }}
         >
-          {/* Decorative circles */}
           <div className="absolute -top-8 -right-8 w-40 h-40 rounded-full bg-white/10 pointer-events-none" />
           <div className="absolute -bottom-10 -left-10 w-36 h-36 rounded-full bg-white/10 pointer-events-none" />
 
@@ -67,12 +179,12 @@ function CardDisplay({ card }: { card: CreditCard }) {
                   <p className="text-white/60 text-xs mt-0.5">•••• {card.lastFour}</p>
                 )}
               </div>
-              {/* Ring */}
+              {/* Ring showing % remaining */}
               <div className="relative flex items-center justify-center">
-                <Ring pct={util} />
+                <Ring pct={remainingPct} />
                 <div className="absolute flex flex-col items-center">
-                  <span className="text-xs font-bold leading-none">{Math.round(util)}%</span>
-                  <span className="text-[9px] text-white/60 mt-0.5">used</span>
+                  <span className="text-xs font-bold leading-none">{Math.round(remainingPct)}%</span>
+                  <span className="text-[9px] text-white/60 mt-0.5">left</span>
                 </div>
               </div>
             </div>
@@ -91,8 +203,10 @@ function CardDisplay({ card }: { card: CreditCard }) {
                 <p className="text-sm font-semibold">{formatCurrency(card.limit)}</p>
               </div>
               <div>
-                <p className="text-white/60 text-[10px]">Utilization</p>
-                <p className="text-sm font-semibold">{util.toFixed(1)}%</p>
+                <p className="text-white/60 text-[10px]">Used</p>
+                <p className="text-sm font-semibold">
+                  {card.limit > 0 ? ((card.balance / card.limit) * 100).toFixed(1) : '0.0'}%
+                </p>
               </div>
             </div>
           </div>
@@ -100,26 +214,18 @@ function CardDisplay({ card }: { card: CreditCard }) {
 
         {/* Actions */}
         <div className="flex gap-2">
-          <Dialog open={txOpen} onOpenChange={setTxOpen}>
+          <Dialog open={editOpen} onOpenChange={setEditOpen}>
             <DialogTrigger asChild>
-              <Button size="sm" className="flex-1">
-                <Plus className="w-3.5 h-3.5 mr-1.5" />Add Transaction
+              <Button size="sm" variant="outline" className="flex-1 gap-1.5">
+                <Pencil className="w-3.5 h-3.5" />Edit Card
               </Button>
             </DialogTrigger>
             <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Add Transaction — {card.name}</DialogTitle>
-              </DialogHeader>
-              <TransactionForm cardId={card.id} onSuccess={() => setTxOpen(false)} />
+              <DialogHeader><DialogTitle>Edit Card — {card.name}</DialogTitle></DialogHeader>
+              <EditCardForm card={card} onSuccess={() => setEditOpen(false)} />
             </DialogContent>
           </Dialog>
-          <Button
-            size="sm" variant="outline"
-            className="text-rose-500 hover:text-rose-600 hover:border-rose-300"
-            onClick={() => { removeCreditCard(card.id); toast.success('Card removed'); }}
-          >
-            <Trash2 className="w-4 h-4" />
-          </Button>
+          <DeleteCardDialog card={card} onDeleted={() => {}} />
         </div>
 
         {/* Recent txns */}
@@ -127,7 +233,7 @@ function CardDisplay({ card }: { card: CreditCard }) {
           <>
             <Separator />
             <div>
-              <p className="text-xs font-medium text-muted-foreground mb-2">Recent</p>
+              <p className="text-xs font-medium text-muted-foreground mb-2">Recent Expenses</p>
               <div className="space-y-1.5">
                 {recent.map((t) => (
                   <div key={t.id} className="flex items-center justify-between text-xs">
@@ -155,20 +261,27 @@ function CardDisplay({ card }: { card: CreditCard }) {
 /* ── Add card form ── */
 function AddCardForm({ onSuccess }: { onSuccess: () => void }) {
   const { addCreditCard } = useBudgetStore();
-  const [name, setName]       = useState('');
-  const [balance, setBalance] = useState('');
-  const [limit, setLimit]     = useState('');
-  const [color, setColor]     = useState<CardColor>('blue');
-  const [lastFour, setLast4]  = useState('');
+  const [name, setName]             = useState('');
+  const [availableCredit, setAvail] = useState('');
+  const [limit, setLimit]           = useState('');
+  const [color, setColor]           = useState<CardColor>('blue');
+  const [lastFour, setLast4]        = useState('');
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const lim = parseFloat(limit);
+    const avail = parseFloat(availableCredit);
     if (!name || isNaN(lim) || lim <= 0) { toast.error('Name and limit are required'); return; }
-    addCreditCard({ name, balance: parseFloat(balance) || 0, limit: lim, color, lastFour: lastFour || undefined });
+    if (isNaN(avail) || avail < 0) { toast.error('Available credit must be a valid number'); return; }
+    const balance = Math.max(0, lim - avail);
+    addCreditCard({ name, balance, limit: lim, color, lastFour: lastFour || undefined });
     toast.success('Credit card added!');
     onSuccess();
   }
+
+  const lim = parseFloat(limit);
+  const avail = parseFloat(availableCredit);
+  const computedBalance = !isNaN(lim) && !isNaN(avail) ? Math.max(0, lim - avail) : null;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -178,14 +291,19 @@ function AddCardForm({ onSuccess }: { onSuccess: () => void }) {
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1.5">
-          <Label>Current Balance</Label>
-          <Input type="number" min="0" step="0.01" placeholder="0.00" value={balance} onChange={(e) => setBalance(e.target.value)} />
-        </div>
-        <div className="space-y-1.5">
           <Label>Credit Limit *</Label>
           <Input type="number" min="0" step="0.01" placeholder="5000" value={limit} onChange={(e) => setLimit(e.target.value)} />
         </div>
+        <div className="space-y-1.5">
+          <Label>Available Credit *</Label>
+          <Input type="number" min="0" step="0.01" placeholder="3200" value={availableCredit} onChange={(e) => setAvail(e.target.value)} />
+        </div>
       </div>
+      {computedBalance !== null && (
+        <p className="text-xs text-muted-foreground">
+          Balance owed: <span className="font-semibold text-foreground">{formatCurrency(computedBalance)}</span>
+        </p>
+      )}
       <div className="space-y-1.5">
         <Label>Last 4 Digits (optional)</Label>
         <Input placeholder="1234" maxLength={4} value={lastFour} onChange={(e) => setLast4(e.target.value)} />
@@ -212,12 +330,20 @@ export default function CreditCardWidget() {
   const { creditCards } = useBudgetStore();
   const [open, setOpen] = useState(false);
 
+  const totalBalance = creditCards.reduce((s, c) => s + c.balance, 0);
+  const totalAvailable = creditCards.reduce((s, c) => s + Math.max(0, c.limit - c.balance), 0);
+
   return (
     <div className="p-6 space-y-6 max-w-5xl">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold">Credit Cards</h2>
-          <p className="text-muted-foreground text-sm mt-0.5">Manage balances and transactions</p>
+          {creditCards.length > 0 && (
+            <p className="text-muted-foreground text-sm mt-0.5">
+              Total owed: <span className="font-semibold text-rose-500">{formatCurrency(totalBalance)}</span>
+              {' · '}Available: <span className="font-semibold text-emerald-600">{formatCurrency(totalAvailable)}</span>
+            </p>
+          )}
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
