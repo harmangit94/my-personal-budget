@@ -59,6 +59,8 @@ export interface Bill {
   lastPaidDate: string;
   frequency: BillFrequency;
   category: TransactionCategory;
+  cardId?: string;
+  accountId?: string;
 }
 
 export interface IncomeEntry {

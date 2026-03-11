@@ -26,6 +26,7 @@ const toTx = (r: any): Transaction => ({
 const toBill = (r: any): Bill => ({
   id: r.id, name: r.name, amount: r.amount,
   lastPaidDate: r.last_paid_date, frequency: r.frequency, category: r.category,
+  cardId: r.card_id ?? undefined, accountId: r.account_id ?? undefined,
 });
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const toIncome = (r: any): IncomeEntry => ({
@@ -58,6 +59,7 @@ interface BudgetStore {
   removeTransaction: (id: string) => void;
 
   addBill: (bill: Omit<Bill, 'id'>) => void;
+  updateBill: (id: string, updates: Partial<Omit<Bill, 'id'>>) => void;
   removeBill: (id: string) => void;
   markBillAsPaid: (id: string) => void;
 
@@ -286,8 +288,25 @@ export const useBudgetStore = create<BudgetStore>()((set, get) => ({
       supabase.from('bills').insert({
         id, user_id: uid_, name: bill.name, amount: bill.amount,
         last_paid_date: bill.lastPaidDate, frequency: bill.frequency, category: bill.category,
+        card_id: bill.cardId ?? null, account_id: bill.accountId ?? null,
       }).then(({ error }) => { if (error) toast.error('Failed to save bill'); });
     }
+  },
+
+  updateBill: (id, updates) => {
+    set((s) => ({
+      bills: s.bills.map((b) => b.id === id ? { ...b, ...updates } : b),
+    }));
+    const db: Record<string, unknown> = {};
+    if (updates.name !== undefined) db.name = updates.name;
+    if (updates.amount !== undefined) db.amount = updates.amount;
+    if (updates.lastPaidDate !== undefined) db.last_paid_date = updates.lastPaidDate;
+    if (updates.frequency !== undefined) db.frequency = updates.frequency;
+    if (updates.category !== undefined) db.category = updates.category;
+    if (updates.cardId !== undefined) db.card_id = updates.cardId ?? null;
+    if (updates.accountId !== undefined) db.account_id = updates.accountId ?? null;
+    supabase.from('bills').update(db).eq('id', id)
+      .then(({ error }) => { if (error) toast.error('Failed to update bill'); });
   },
 
   removeBill: (id) => {
@@ -298,11 +317,24 @@ export const useBudgetStore = create<BudgetStore>()((set, get) => ({
 
   markBillAsPaid: (id) => {
     const now = new Date().toISOString();
+    const bill = get().bills.find((b) => b.id === id);
     set((s) => ({
       bills: s.bills.map((b) => b.id === id ? { ...b, lastPaidDate: now } : b),
     }));
     supabase.from('bills').update({ last_paid_date: now }).eq('id', id)
       .then(({ error }) => { if (error) toast.error('Failed to update bill'); });
+    // Auto-create expense transaction if linked to account/card
+    if (bill && (bill.cardId || bill.accountId)) {
+      get().addTransaction({
+        amount: bill.amount,
+        description: `Bill: ${bill.name}`,
+        date: now,
+        category: bill.category,
+        type: 'expense',
+        cardId: bill.cardId,
+        accountId: bill.accountId,
+      });
+    }
   },
 
   /* ── Income ── */

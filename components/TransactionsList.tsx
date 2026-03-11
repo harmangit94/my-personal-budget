@@ -9,15 +9,17 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import TransactionForm from './TransactionForm';
-import { Plus, Trash2, ArrowUpCircle, ArrowDownCircle, Receipt } from 'lucide-react';
+import CsvImport from './CsvImport';
+import { Plus, Trash2, ArrowUpCircle, ArrowDownCircle, Receipt, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import type { TransactionCategory } from '@/types';
 
 export default function TransactionsList() {
   const { transactions, removeTransaction, creditCards, accounts } = useBudgetStore();
-  const [open, setOpen]       = useState(false);
-  const [typeFilter, setType] = useState<'all' | 'expense' | 'deposit'>('all');
-  const [catFilter, setCat]   = useState<'all' | TransactionCategory>('all');
+  const [open, setOpen]         = useState(false);
+  const [csvOpen, setCsvOpen]   = useState(false);
+  const [typeFilter, setType]   = useState<'all' | 'expense' | 'deposit'>('all');
+  const [catFilter, setCat]     = useState<'all' | TransactionCategory>('all');
 
   const getLinkedName = (cardId?: string, accountId?: string) => {
     if (cardId) return creditCards.find((c) => c.id === cardId)?.name ?? 'Card';
@@ -46,15 +48,26 @@ export default function TransactionsList() {
           <h2 className="text-2xl font-bold">Expenses</h2>
           <p className="text-muted-foreground text-sm mt-0.5">{transactions.length} total</p>
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button><Plus className="w-4 h-4 mr-2" />Add Expense</Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader><DialogTitle>Add Expense</DialogTitle></DialogHeader>
-            <TransactionForm onSuccess={() => setOpen(false)} />
-          </DialogContent>
-        </Dialog>
+        <div className="flex gap-2">
+          <Dialog open={csvOpen} onOpenChange={setCsvOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline"><Upload className="w-4 h-4 mr-2" />Import CSV</Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-lg">
+              <DialogHeader><DialogTitle>Import Expenses from CSV</DialogTitle></DialogHeader>
+              <CsvImport onDone={() => setCsvOpen(false)} />
+            </DialogContent>
+          </Dialog>
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button><Plus className="w-4 h-4 mr-2" />Add Expense</Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader><DialogTitle>Add Expense</DialogTitle></DialogHeader>
+              <TransactionForm onSuccess={() => setOpen(false)} />
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {/* Filters + totals */}

@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import SpendingPieChart from './SpendingPieChart';
-import { CreditCard, TrendingUp, CalendarDays, ArrowUpDown, AlertCircle, Plus, Wallet } from 'lucide-react';
+import { CreditCard, TrendingUp, CalendarDays, ArrowUpDown, AlertCircle, Plus, Wallet, PiggyBank } from 'lucide-react';
 import type { ActiveSection } from '@/types';
 import { isSameMonth, parseISO, isThisWeek } from 'date-fns';
 import { format } from 'date-fns';
@@ -17,6 +17,7 @@ export default function DashboardSummary({ onNavigate }: { onNavigate: (s: Activ
 
   const totalDebt = creditCards.reduce((s, c) => s + c.balance, 0);
   const totalAvailable = creditCards.reduce((s, c) => s + Math.max(0, c.limit - c.balance), 0);
+  const totalSavings = accounts.reduce((s, a) => s + a.balance, 0);
 
   const thisWeekIncome = incomeEntries
     .filter((e) => isThisWeekEntry(e.date))
@@ -71,6 +72,14 @@ export default function DashboardSummary({ onNavigate }: { onNavigate: (s: Activ
       iconCls: cashFlow >= 0 ? 'text-blue-500' : 'text-rose-500',
       bgCls: cashFlow >= 0 ? 'bg-blue-50 dark:bg-blue-950/30' : 'bg-rose-50 dark:bg-rose-950/30',
     },
+    {
+      label: 'Total Savings',
+      value: formatCurrency(totalSavings),
+      sub: `${accounts.length} account${accounts.length !== 1 ? 's' : ''}`,
+      icon: PiggyBank,
+      iconCls: 'text-violet-500',
+      bgCls: 'bg-violet-50 dark:bg-violet-950/30',
+    },
   ];
 
   return (
@@ -81,7 +90,7 @@ export default function DashboardSummary({ onNavigate }: { onNavigate: (s: Activ
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
         {summaryCards.map((c) => (
           <Card key={c.label}>
             <CardContent className="p-5">
